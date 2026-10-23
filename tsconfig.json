@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "lib": ["ES2019", "DOM"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
+    "outDir": "dist",
+    "removeComments": false
+  },
+  "files": ["src/app.ts","src/constants/index.ts","src/types/index.ts"]
+}

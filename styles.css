@@ -1,0 +1,343 @@
+/* Akiba SACCO feature phone emulator.
+   The handset is drawn in a 200 x 460 coordinate space measured from the
+   design kit, then scaled as a whole with --scale. The display itself is
+   always 160 x 128 CSS px before that scale. */
+
+:root {
+  --page: #c5c9bc;
+  --panel: #e8e9df;
+  --ink: #2b2b2b;
+  --muted: #5b5e55;
+  --lcd: #e8e9df;
+  --lcd-ink: #4b4d47;
+  --body: #2b2b2b;
+  --shell: #f2f2f2;
+  --focus: #1c55b0;
+  --scale: 1.5;
+  --mono: "IBM Plex Mono", "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, "Courier New", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; }
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font: 15px/1.5 var(--sans);
+  min-height: 100vh;
+}
+
+/* ---------- page layout ---------- */
+
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-areas:
+    "intro   controls"
+    "stage   controls";
+  grid-template-rows: auto 1fr;
+  gap: 8px 40px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 28px 48px;
+}
+
+.intro { grid-area: intro; max-width: 560px; }
+.intro h1 { margin: 0 0 6px; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
+.intro p { margin: 0; color: var(--muted); }
+.intro b { color: var(--ink); font-family: var(--mono); font-weight: 600; }
+
+.stage {
+  grid-area: stage;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 36px;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12px;
+}
+
+.controls {
+  grid-area: controls;
+  align-self: start;
+  position: sticky;
+  top: 24px;
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 18px 18px 20px;
+  display: grid;
+  gap: 18px;
+}
+
+fieldset { border: 0; margin: 0; padding: 0; }
+legend, .controls h2 {
+  padding: 0;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.seg { display: flex; border: 1px solid #9b9e92; border-radius: 9px; overflow: hidden; }
+.seg label { flex: 1; position: relative; }
+.seg label + label { border-left: 1px solid #9b9e92; }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span {
+  display: block;
+  text-align: center;
+  padding: 7px 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.seg input:checked + span { background: var(--lcd-ink); color: var(--lcd); }
+.seg input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: -3px; }
+
+.note, .help p { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.help h2 { margin-bottom: 0; }
+kbd {
+  font: 12px var(--mono);
+  background: #fff;
+  border: 1px solid #b4b7aa;
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.trail {
+  margin: 0 0 14px;
+  font: 12.5px/1.5 var(--mono);
+  min-height: 3em;
+  overflow-wrap: anywhere;
+}
+.fit { margin: 0; font: 12.5px/1.5 var(--mono); }
+.fit[data-ok="false"] { color: #a3261b; font-weight: 600; }
+
+.reset {
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px solid #9b9e92;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.reset:hover { background: #dcded2; }
+.reset:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+@media (max-width: 860px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "intro" "stage" "controls";
+  }
+  .controls { position: static; }
+}
+
+/* ---------- handset ---------- */
+
+.phone { margin: 0; text-align: center; }
+.phone-caption { font-weight: 650; margin: 0 0 10px; }
+
+.phone-box {
+  width: calc(200px * var(--scale));
+  height: calc(460px * var(--scale));
+}
+
+.handset {
+  position: relative;
+  width: 200px;
+  height: 460px;
+  transform: scale(var(--scale));
+  transform-origin: 0 0;
+  text-align: left;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.22));
+}
+
+.shell {
+  position: absolute;
+  left: 2px; top: 2px;
+  width: 196px; height: 452px;
+  border-radius: 34px;
+  background: var(--shell);
+  border: 1px solid #e0e0e0;
+  box-shadow: inset 0 0 0 7px #eeeeee;
+}
+
+.body {
+  position: absolute;
+  left: 12px; top: 12px;
+  width: 176px; height: 292px;
+  background: var(--body);
+  border: 1px solid #595959;
+  border-bottom-color: #262626;
+  border-radius: 24px 24px 24px 24px;
+}
+
+.speaker {
+  position: absolute;
+  left: 61px; top: 12px;   /* body-relative: abs 86 / 25 */
+  width: 28px; height: 6px;
+  border-radius: 3px;
+  background: #000;
+  box-shadow: 0 0 0 2px #1b1b1b;
+}
+
+.brand {
+  position: absolute;
+  left: 0; right: 0; top: 33px;
+  text-align: center;
+  font: 8px/11px var(--mono);
+  letter-spacing: 1px;
+  color: #bdbdbd;
+}
+
+/* ---------- display: exactly 160 x 128 ---------- */
+
+.screen {
+  position: absolute;
+  left: 20px; top: 75px;
+  width: 160px; height: 128px;
+  border: 1px solid;
+  border-color: #b9bab2 #b9bab2 #5a5a58 #5a5a58;
+  background: var(--lcd);
+  color: var(--lcd-ink);
+  overflow: hidden;
+  pointer-events: none;      /* output only: no direct touches */
+  user-select: none;
+  -webkit-user-select: none;
+  font: 11px/14px var(--mono);
+}
+
+.line {
+  position: absolute;
+  left: 6px;
+  width: 148px;
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: clip;
+}
+.title { top: 4px; height: 14px; }
+.rule  { position: absolute; left: 6px; width: 148px; top: 22px; height: 1px; background: var(--lcd-ink); }
+.row-0 { top: 28px; height: 14px; }
+.row-1 { top: 42px; height: 14px; }
+.row-2 { top: 56px; height: 14px; }
+.row-3 { top: 70px; height: 14px; }
+.foot  { font-size: 10px; line-height: 12px; height: 12px; }
+.foot-0 { top: 89px; }
+.foot-1 { top: 101px; }
+
+/* ---------- navigation ring, soft keys, Call / End ---------- */
+
+.nav-ring {
+  position: absolute;
+  left: 72px; top: 240px;
+  width: 54px; height: 54px;
+  border: 8px solid #828282;
+  border-radius: 17px;
+  background: linear-gradient(180deg, #262626, #3a3a3a);
+  box-shadow: 0 1px 0 #1a1a1a;
+}
+
+.soft {
+  position: absolute;
+  top: 250px;
+  width: 16px; height: 2px;
+  border-radius: 1px;
+  background: #8c8c8c;
+}
+.soft-l { left: 35px; }
+.soft-r { left: 148px; }
+
+.hard {
+  position: absolute;
+  top: 264px;
+  width: 42px; height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #cfcfcf;
+  cursor: pointer;
+  font: 7px/8px var(--mono);
+  -webkit-tap-highlight-color: transparent;
+}
+.hard-call { left: 22px; }
+.hard-end  { left: 135px; }
+
+.hard-icon {
+  position: absolute;
+  left: 14px; top: 12px;
+  width: 14px; height: 7px;
+  border: 1.5px solid #d6d6d6;
+}
+.hard-call .hard-icon { border-top: 0; border-radius: 0 0 5px 5px; }
+.hard-end  .hard-icon { border-bottom: 0; border-radius: 5px 5px 0 0; top: 14px; }
+.hard-label { position: absolute; left: 0; right: 0; top: 28px; text-align: center; }
+
+.hard:hover, .hard.is-down { background: rgba(255, 255, 255, 0.1); }
+.hard:active { background: rgba(255, 255, 255, 0.18); }
+
+/* ---------- keypad ---------- */
+
+.keypad {
+  position: absolute;
+  left: 12px; top: 312px;
+  width: 176px; height: 136px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(4, 34px);
+  border-radius: 0 0 20px 20px;
+  overflow: hidden;
+  background: var(--shell);
+}
+
+.key {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 0 0;
+  border: 0;
+  border-bottom: 1px solid #dedede;
+  background: linear-gradient(180deg, #fbfbfb 0%, #f2f2f2 55%, #e7e7e7 100%);
+  color: #828282;
+  font-family: var(--sans);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.key:nth-child(-n+9) { }
+.key:nth-last-child(-n+3) { border-bottom: 0; }
+
+.key-main { font-size: 17px; line-height: 1; }
+.key-sub  { font-size: 10px; line-height: 1; }
+
+/* tactile bump on 5 */
+.key-5::after {
+  content: "";
+  position: absolute;
+  left: 50%; bottom: 3px;
+  width: 11px; height: 3px;
+  margin-left: -5px;
+  border-radius: 2px;
+  background: #d3d3d3;
+}
+
+.key:hover { background: linear-gradient(180deg, #ffffff 0%, #f6f6f6 55%, #ececec 100%); }
+.key:active, .key.is-down {
+  background: linear-gradient(180deg, #e2e2e2 0%, #ebebeb 100%);
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.18);
+  color: #5d5d5d;
+}
+.key-0.is-hold { background: #d4d6c8; }
+
+.key:focus-visible, .hard:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .key, .hard { transition: background-color 60ms linear; }
+}
