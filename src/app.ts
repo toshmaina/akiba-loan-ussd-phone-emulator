@@ -1,6 +1,6 @@
-import { Lang, KeyName, Press, View,Mode } from "types/index"
-import {MAX_FOOT_CHARS,MAX_ROW_CHARS,STR,HOLD_MS,KEYPAD} from "./constants/index"
-import {Emulator} from "emulator/index"
+import { Lang, KeyName, Press, View, Mode } from "./types/index.js"
+import {MAX_FOOT_CHARS,MAX_ROW_CHARS,STR,HOLD_MS,KEYPAD} from "./constants/index.js"
+import {Emulator} from "./emulator/index.js"
 
 
 
