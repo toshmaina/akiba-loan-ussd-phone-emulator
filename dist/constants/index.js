@@ -5,7 +5,6 @@ const DIAL_CODE = "*144#";
 const MY_NUMBER = "0712345678";
 const START_BALANCE = 12500;
 const MIN_AMOUNT = 10;
-/** Monospace columns that fit the 148px text area (11px body, 10px footer). */
 const MAX_ROW_CHARS = 22;
 const MAX_FOOT_CHARS = 24;
 const MAX_PHONE_DIGITS = 10;
@@ -87,4 +86,19 @@ const STR = {
     },
 };
 const fmt = (n) => n.toLocaleString("en-US");
-export { DIAL_CODE, MAX_AMOUNT_DIGITS, MAX_FOOT_CHARS, MAX_PHONE_DIGITS, MAX_ROW_CHARS, MIN_AMOUNT, MY_NUMBER, START_BALANCE, STR, fmt, };
+const KEYPAD = [
+    { key: "1", main: "1", sub: "∞", label: "1" },
+    { key: "2", main: "2", sub: "abc", label: "2" },
+    { key: "3", main: "3", sub: "def", label: "3" },
+    { key: "4", main: "4", sub: "ghi", label: "4" },
+    { key: "5", main: "5", sub: "jkl", label: "5" },
+    { key: "6", main: "6", sub: "mno", label: "6" },
+    { key: "7", main: "7", sub: "pqrs", label: "7" },
+    { key: "8", main: "8", sub: "tuv", label: "8" },
+    { key: "9", main: "9", sub: "wxyz", label: "9" },
+    { key: "*", main: "*", sub: "+", label: "Star" },
+    { key: "0", main: "0", sub: "␣", label: "0 (hold for Back)" },
+    { key: "#", main: "#", sub: "↑↵", label: "Hash" },
+];
+const HOLD_MS = 600;
+export { DIAL_CODE, MAX_AMOUNT_DIGITS, MAX_FOOT_CHARS, MAX_PHONE_DIGITS, MAX_ROW_CHARS, MIN_AMOUNT, MY_NUMBER, START_BALANCE, STR, fmt, HOLD_MS, KEYPAD };

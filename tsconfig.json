@@ -1,12 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES2019",
+    "module": "ES2020",
+    "moduleResolution": "node",
     "lib": ["ES2019", "DOM"],
     "strict": true,
     "noUnusedLocals": true,
     "noImplicitReturns": true,
+    "rootDir": "src",
     "outDir": "dist",
     "removeComments": false
   },
-  "files": ["src/app.ts","src/constants/index.ts","src/types/index.ts"]
+  "include": ["src/**/*.ts"]
 }

@@ -1,5 +1,5 @@
-import { Lang, ErrKey, Press, ScreenId, View, Withdrawal } from "../types/index"
-import {DIAL_CODE,MAX_AMOUNT_DIGITS,MAX_PHONE_DIGITS,MIN_AMOUNT,MY_NUMBER,START_BALANCE,STR,fmt} from "../constants/index"
+import { Lang, ErrKey, Press, ScreenId, View, Withdrawal } from "../types/index.js"
+import {DIAL_CODE,MAX_AMOUNT_DIGITS,MAX_PHONE_DIGITS,MIN_AMOUNT,MY_NUMBER,START_BALANCE,STR,fmt} from "../constants/index.js"
 
 
 
