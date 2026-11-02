@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Akiba SACCO · USSD feature phone emulator</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="dist/app.js" type="module" defer></script>
+  <script type="module" src="dist/app.js"></script>
 </head>
 <body>
   <main class="page">
@@ -36,9 +36,22 @@
         <p class="note">1× is true size: the display is exactly 160×128 px.</p>
       </fieldset>
 
+      <fieldset>
+        <legend>Session timeout</legend>
+        <div class="seg">
+          <label><input type="radio" name="timeout" value="0"><span>Off</span></label>
+          <label><input type="radio" name="timeout" value="15"><span>15s</span></label>
+          <label><input type="radio" name="timeout" value="30" checked><span>30s</span></label>
+          <label><input type="radio" name="timeout" value="60"><span>60s</span></label>
+        </div>
+        <p class="note">As on a real network, an idle USSD session is ended after this long.</p>
+      </fieldset>
+
       <section class="readout" aria-label="Session">
         <h2>Path so far</h2>
         <p id="trail" class="trail"></p>
+        <h2>Session</h2>
+        <p id="session" class="fit"></p>
         <h2>Text fit</h2>
         <p id="fit" class="fit"></p>
       </section>

@@ -11,7 +11,15 @@ function longestLines(v: View): { row: number; foot: number } {
 
 /** Side panel readouts: the path taken so far and whether text fits the display. */
 export class Inspector {
-  constructor(private trailEl: HTMLElement, private fitEl: HTMLElement) {}
+  constructor(
+    private trailEl: HTMLElement,
+    private fitEl: HTMLElement,
+    private sessionEl: HTMLElement
+  ) {}
+
+  setSession(text: string): void {
+    this.sessionEl.textContent = text;
+  }
 
   update(handsets: Handset[]): void {
     this.trailEl.textContent = handsets[0].view.trail.join("  ›  ");

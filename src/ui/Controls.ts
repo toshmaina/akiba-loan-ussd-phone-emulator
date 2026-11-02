@@ -3,6 +3,7 @@ import type { Mode } from "../types/index.js";
 export interface ControlHandlers {
   onMode(mode: Mode): void;
   onScale(scale: number): void;
+  onTimeout(seconds: number): void;
   onReset(): void;
 }
 
@@ -15,7 +16,17 @@ export class Controls {
     document.querySelectorAll<HTMLInputElement>('input[name="scale"]').forEach((input) => {
       input.addEventListener("change", () => handlers.onScale(parseFloat(input.value)));
     });
+    document.querySelectorAll<HTMLInputElement>('input[name="timeout"]').forEach((input) => {
+      input.addEventListener("change", () => handlers.onTimeout(parseInt(input.value, 10)));
+    });
     document.getElementById("reset")?.addEventListener("click", () => handlers.onReset());
+  }
+
+  showTimeout(seconds: number): void {
+    const input = document.querySelector<HTMLInputElement>(
+      `input[name="timeout"][value="${seconds}"]`
+    );
+    if (input) input.checked = true;
   }
 
   /** Reflect the chosen scale in the radio group. */

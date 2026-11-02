@@ -1,13 +1,14 @@
-import { Lang, ErrKey, Press, ScreenId, View, Withdrawal } from "../types/index.js"
-import {DIAL_CODE,MAX_AMOUNT_DIGITS,MAX_PHONE_DIGITS,MIN_AMOUNT,MY_NUMBER,START_BALANCE,STR,fmt} from "../constants/index.js"
-
-
+import type { Lang, ScreenId, ErrKey, Press, View, Withdrawal } from "../types/index.js";
+import {
+  DIAL_CODE, MY_NUMBER, START_BALANCE, MIN_AMOUNT,
+  MAX_PHONE_DIGITS, MAX_AMOUNT_DIGITS, STR, fmt,
+} from "../constants/index.js";
 
 export class Emulator {
   lang: Lang;
   balance = START_BALANCE;
   private screen: ScreenId = "dial";
-  private buffer = DIAL_CODE;
+  private buffer = DIAL_CODE; // the dial screen opens pre-filled, as in the kit
   private stack: ScreenId[] = [];
   private error: ErrKey | null = null;
   private tx: Withdrawal = { target: "self", phone: MY_NUMBER, amount: 0 };
@@ -16,11 +17,28 @@ export class Emulator {
     this.lang = lang;
   }
 
-
+  /** Back to an idle handset. Balance is kept; use a new Emulator to reset it. */
   private quit(): void {
     this.screen = "dial";
     this.buffer = DIAL_CODE;
     this.stack = [];
+    this.error = null;
+  }
+
+  /** True while a USSD session is open (anything past the dial screen). */
+  get sessionActive(): boolean {
+    return this.screen !== "dial" && this.screen !== "expired";
+  }
+
+  /**
+   * The network ends the session after inactivity. The screen the user was on
+   * stays in the trail; the next key press returns the handset to idle.
+   */
+  expire(): void {
+    if (!this.sessionActive) return;
+    this.stack.push(this.screen);
+    this.screen = "expired";
+    this.buffer = "";
     this.error = null;
   }
 
@@ -74,6 +92,9 @@ export class Emulator {
       case "cancelled":
         if (p.key === "0") this.toMainMenu();
         return;
+      case "expired":
+        this.quit(); // any key closes the timed-out session
+        return;
     }
   }
 
@@ -84,6 +105,7 @@ export class Emulator {
       return;
     }
     if (p.key === "*" && this.buffer === DIAL_CODE) {
+      // First "*" on the pre-filled code clears it and starts a new entry.
       this.buffer = "*";
       return;
     }
@@ -99,7 +121,7 @@ export class Emulator {
       return;
     }
     if (/^[1-9]$/.test(p.key)) {
-      this.buffer = p.key;
+      this.buffer = p.key; // menus take a single digit
       return;
     }
     if (p.key !== "#") return;
@@ -150,19 +172,33 @@ export class Emulator {
   }
 
   private pressConfirm(p: Press): void {
+    // Same input model as the menus: key 1 or 2, then # to submit (per the design).
     if (p.key === "0") return this.back();
-    if (p.key === "1") {
+    if (p.key === "*") {
+      this.buffer = "";
+      return;
+    }
+    if (/^[1-9]$/.test(p.key)) {
+      this.buffer = p.key;
+      return;
+    }
+    if (p.key !== "#") return;
+
+    if (this.buffer === "1") {
       this.balance -= this.tx.amount;
       this.stack = ["dial", "main"];
       this.screen = "done";
       this.buffer = "";
-    } else if (p.key === "2") {
+    } else if (this.buffer === "2") {
       this.stack = ["dial", "main"];
       this.screen = "cancelled";
       this.buffer = "";
+    } else {
+      this.fail("badChoice");
     }
   }
 
+  /** Text for the current screen in the current language. */
   render(): View {
     const s = STR[this.lang];
     const prompt = `> ${this.buffer}_`;
@@ -204,9 +240,9 @@ export class Emulator {
           s.reviewTitle,
           `KES ${fmt(this.tx.amount)}`,
           `${s.to} ${this.tx.phone}`,
-          s.confirmChoice,
+          this.buffer ? `${s.confirmChoice} ${this.buffer}` : s.confirmChoice,
         ];
-        foot = s.foot.view;
+        foot = s.foot.menu;
         break;
       case "done":
         rows = [
@@ -220,6 +256,10 @@ export class Emulator {
       case "cancelled":
         rows = [s.cancelledTitle, s.cancelledBody, "", ""];
         foot = s.foot.done;
+        break;
+      case "expired":
+        rows = [s.expiredTitle, s.expiredBody, "", ""];
+        foot = s.foot.expired;
         break;
     }
 
@@ -235,9 +275,12 @@ export class Emulator {
       confirm: s.reviewTitle,
       done: s.doneTitle,
       cancelled: s.cancelledTitle,
+      expired: s.expiredTitle,
     };
     const trail = [...this.stack, this.screen].map((id) => names[id]);
 
     return { screen: this.screen, rows, foot: [...foot], trail };
   }
 }
+
+/** Longest content row and footer line in a view, in characters. */

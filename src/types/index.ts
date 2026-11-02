@@ -1,5 +1,5 @@
-type Lang = "en" | "sw";
-type ScreenId =
+export type Lang = "en" | "sw";
+export type ScreenId =
   | "dial"
   | "main"
   | "balance"
@@ -8,26 +8,30 @@ type ScreenId =
   | "amount"
   | "confirm"
   | "done"
-  | "cancelled";
-type ErrKey = "unknownCode" | "badChoice" | "badNumber" | "badAmount" | "noFunds";
-type KeyName =
+  | "cancelled"
+  | "expired";
+export type ErrKey = "unknownCode" | "badChoice" | "badNumber" | "badAmount" | "noFunds";
+export type KeyName =
   | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
   | "*" | "#" | "call" | "end";
 
-interface Press {
+export interface Press {
   key: KeyName;
+  /** Long-press. Only meaningful for "0", where it means Back on input screens. */
   hold?: boolean;
 }
 
-interface View {
+export interface View {
   screen: ScreenId;
+  /** Four content lines under the title rule. */
   rows: string[];
+  /** Two footer lines (soft-key hints). */
   foot: string[];
+  /** Breadcrumb of screens visited in this session. */
   trail: string[];
 }
 
-
-interface Strings {
+export interface Strings {
   appName: string;
   dialPrompt: string;
   mainTitle: string;
@@ -49,6 +53,8 @@ interface Strings {
   balanceLine: (amount: string) => string;
   cancelledTitle: string;
   cancelledBody: string;
+  expiredTitle: string;
+  expiredBody: string;
   err: Record<ErrKey, string>;
   foot: {
     dial: [string, string];
@@ -56,32 +62,24 @@ interface Strings {
     view: [string, string];
     input: [string, string];
     done: [string, string];
+    expired: [string, string];
   };
 }
-interface Withdrawal {
+
+
+export interface Withdrawal {
   target: "self" | "other";
   phone: string;
   amount: number;
 }
 
-interface KeyDef {
+
+export interface KeyDef {
   key: KeyName;
   main: string;
   sub: string;
   label: string;
 }
 
-type Mode = "en" | "sw" | "both";
 
-export {
-  ScreenId,
-  Lang,
-  Press,
-  ErrKey,
-  KeyName,
-  View,
-  Strings,
-  Withdrawal,
-  KeyDef,
-  Mode
-}
+export type Mode = "en" | "sw" | "both";
