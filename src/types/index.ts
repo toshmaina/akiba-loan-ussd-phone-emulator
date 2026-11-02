@@ -26,6 +26,7 @@ interface View {
   trail: string[];
 }
 
+
 interface Strings {
   appName: string;
   dialPrompt: string;

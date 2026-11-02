@@ -1,5 +1,5 @@
 import type { KeyName, Press } from "../types/index.js";
-import { el } from "./dom.js";
+import { createElement } from "./dom.js";
 import { flashButton } from "./Keypad.js";
 
 type HardKeyName = "call" | "end";
@@ -15,11 +15,11 @@ export class HardKeys {
   }
 
   private build(key: HardKeyName, label: string, send: (p: Press) => void): HTMLButtonElement {
-    const button = el("button", `hard hard-${key}`);
+    const button = createElement("button", `hard hard-${key}`);
     button.type = "button";
     button.setAttribute("aria-label", label);
-    button.appendChild(el("span", "hard-icon"));
-    button.appendChild(el("span", "hard-label", label));
+    button.appendChild(createElement("span", "hard-icon"));
+    button.appendChild(createElement("span", "hard-label", label));
     button.addEventListener("click", () => send({ key }));
     return button;
   }
