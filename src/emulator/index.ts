@@ -1,67 +1,81 @@
-import type { Lang, ScreenId, ErrKey, Press, View, Withdrawal } from "../types/index.js";
-import {
-  DIAL_CODE, MY_NUMBER, START_BALANCE, MIN_AMOUNT,
-  MAX_PHONE_DIGITS, MAX_AMOUNT_DIGITS, STR, fmt,
-} from "../constants/index.js";
+import type {
+  Context,
+  DialInput,
+  ErrKey,
+  FieldInput,
+  Lang,
+  MenuInput,
+  Press,
+  ScreenId,
+  View,
+} from "../types/index.js";
+import { MY_NUMBER, START_BALANCE, STR } from "../constants/index.js";
+import { EXPIRED_SCREEN, SCREENS, START_SCREEN } from "../constants/screens.js";
 
+/**
+ * Generic USSD engine. It knows nothing about individual screens: what each
+ * screen shows, where it leads and how it validates input all come from SCREENS.
+ */
 export class Emulator {
   lang: Lang;
-  balance = START_BALANCE;
-  private screen: ScreenId = "dial";
-  private buffer = DIAL_CODE; // the dial screen opens pre-filled, as in the kit
-  private stack: ScreenId[] = [];
+  private screen: ScreenId = START_SCREEN;
+  private buffer = SCREENS[START_SCREEN].initialBuffer ?? "";
   private error: ErrKey | null = null;
-  private tx: Withdrawal = { target: "self", phone: MY_NUMBER, amount: 0 };
+  /** Set while the session-expired notice is showing: where the user was. */
+  private expiredFrom: ScreenId | null = null;
+  private ctx: Context = {
+    balance: START_BALANCE,
+    tx: { target: "self", phone: MY_NUMBER, amount: 0 },
+  };
 
   constructor(lang: Lang) {
     this.lang = lang;
   }
 
-  /** Back to an idle handset. Balance is kept; use a new Emulator to reset it. */
-  private quit(): void {
-    this.screen = "dial";
-    this.buffer = DIAL_CODE;
-    this.stack = [];
-    this.error = null;
+  get balance(): number {
+    return this.ctx.balance;
   }
 
-  /** True while a USSD session is open (anything past the dial screen). */
+  /** True while a USSD session is open on the current screen. */
   get sessionActive(): boolean {
-    return this.screen !== "dial" && this.screen !== "expired";
+    return SCREENS[this.screen].session;
   }
 
   /**
    * The network ends the session after inactivity. The screen the user was on
-   * stays in the trail; the next key press returns the handset to idle.
+   * stays in the trail; the next key press dismisses the notice.
    */
   expire(): void {
     if (!this.sessionActive) return;
-    this.stack.push(this.screen);
-    this.screen = "expired";
-    this.buffer = "";
+    this.expiredFrom = this.screen;
+    this.screen = EXPIRED_SCREEN;
+    this.buffer = SCREENS[EXPIRED_SCREEN].initialBuffer ?? "";
     this.error = null;
   }
 
-  private go(next: ScreenId): void {
-    this.stack.push(this.screen);
-    this.screen = next;
-    this.buffer = "";
+  /* ---------------- navigation ---------------- */
+
+  private goTo(id: ScreenId): void {
+    this.screen = id;
+    this.buffer = SCREENS[id].initialBuffer ?? "";
+    this.expiredFrom = null;
+  }
+
+  private resolvePrev(id: ScreenId): ScreenId | null {
+    const prev = SCREENS[id].prev;
+    return typeof prev === "function" ? prev(this.ctx) : prev;
   }
 
   private back(): void {
-    const prev = this.stack.pop();
-    if (prev === undefined || prev === "dial") {
-      this.quit();
-      return;
-    }
-    this.screen = prev;
-    this.buffer = "";
+    const target = this.resolvePrev(this.screen);
+    if (target === null) this.quit();
+    else this.goTo(target);
   }
 
-  private toMainMenu(): void {
-    this.stack = ["dial"];
-    this.screen = "main";
-    this.buffer = "";
+  /** Back to an idle handset. Balance is kept; use a new Emulator to reset it. */
+  private quit(): void {
+    this.goTo(START_SCREEN);
+    this.error = null;
   }
 
   private fail(e: ErrKey): void {
@@ -69,52 +83,46 @@ export class Emulator {
     this.buffer = "";
   }
 
+  /* ---------------- input ---------------- */
+
   press(p: Press): void {
     this.error = null;
-
     if (p.key === "end") return this.quit();
 
-    switch (this.screen) {
+    const input = SCREENS[this.screen].input;
+    switch (input.kind) {
       case "dial":
-        return this.pressDial(p);
-      case "main":
-      case "withdraw":
-        return this.pressMenu(p);
-      case "phone":
-      case "amount":
-        return this.pressInput(p);
-      case "confirm":
-        return this.pressConfirm(p);
-      case "balance":
+        return this.pressDial(p, input);
+      case "menu":
+        return this.pressMenu(p, input);
+      case "field":
+        return this.pressField(p, input);
+      case "view":
         if (p.key === "0") this.back();
         return;
-      case "done":
-      case "cancelled":
-        if (p.key === "0") this.toMainMenu();
-        return;
-      case "expired":
-        this.quit(); // any key closes the timed-out session
+      case "any":
+        this.back();
         return;
     }
   }
 
-  private pressDial(p: Press): void {
+  private pressDial(p: Press, input: DialInput<ScreenId>): void {
     if (p.key === "call") {
-      if (this.buffer === DIAL_CODE) this.toMainMenu();
+      if (this.buffer === input.code) this.goTo(input.next);
       else this.fail("unknownCode");
       return;
     }
-    if (p.key === "*" && this.buffer === DIAL_CODE) {
+    if (p.key === "*" && this.buffer === input.code) {
       // First "*" on the pre-filled code clears it and starts a new entry.
       this.buffer = "*";
       return;
     }
     if (p.key === "*" || p.key === "#" || /^[0-9]$/.test(p.key)) {
-      if (this.buffer.length < 12) this.buffer += p.key;
+      if (this.buffer.length < input.maxLength) this.buffer += p.key;
     }
   }
 
-  private pressMenu(p: Press): void {
+  private pressMenu(p: Press, input: MenuInput<ScreenId>): void {
     if (p.key === "0") return this.back();
     if (p.key === "*") {
       this.buffer = "";
@@ -126,161 +134,58 @@ export class Emulator {
     }
     if (p.key !== "#") return;
 
-    const choice = this.buffer;
-    if (this.screen === "main") {
-      if (choice === "1") this.go("balance");
-      else if (choice === "2") this.go("withdraw");
-      else this.fail("badChoice");
-    } else {
-      if (choice === "1") {
-        this.tx = { target: "self", phone: MY_NUMBER, amount: 0 };
-        this.go("amount");
-      } else if (choice === "2") {
-        this.tx = { target: "other", phone: "", amount: 0 };
-        this.go("phone");
-      } else {
-        this.fail("badChoice");
-      }
-    }
+    const option = input.options[this.buffer];
+    if (option === undefined) return this.fail("badChoice");
+    if (typeof option === "string") return this.goTo(option);
+    option.effect?.(this.ctx);
+    this.goTo(option.to);
   }
 
-  private pressInput(p: Press): void {
+  private pressField(p: Press, input: FieldInput<ScreenId>): void {
     if (p.key === "0" && p.hold) return this.back();
     if (p.key === "*") {
       this.buffer = "";
       return;
     }
     if (/^[0-9]$/.test(p.key)) {
-      const max = this.screen === "phone" ? MAX_PHONE_DIGITS : MAX_AMOUNT_DIGITS;
-      if (this.buffer.length < max) this.buffer += p.key;
+      if (this.buffer.length < input.maxLength) this.buffer += p.key;
       return;
     }
     if (p.key !== "#") return;
 
-    if (this.screen === "phone") {
-      if (!/^(07|01)\d{8}$/.test(this.buffer)) return this.fail("badNumber");
-      this.tx.phone = this.buffer;
-      this.go("amount");
-      return;
-    }
-
-    const amount = parseInt(this.buffer, 10);
-    if (!Number.isFinite(amount) || amount < MIN_AMOUNT) return this.fail("badAmount");
-    if (amount > this.balance) return this.fail("noFunds");
-    this.tx.amount = amount;
-    this.go("confirm");
+    const error = input.validate(this.buffer, this.ctx);
+    if (error) return this.fail(error);
+    input.commit(this.buffer, this.ctx);
+    this.goTo(input.next);
   }
 
-  private pressConfirm(p: Press): void {
-    // Same input model as the menus: key 1 or 2, then # to submit (per the design).
-    if (p.key === "0") return this.back();
-    if (p.key === "*") {
-      this.buffer = "";
-      return;
-    }
-    if (/^[1-9]$/.test(p.key)) {
-      this.buffer = p.key;
-      return;
-    }
-    if (p.key !== "#") return;
+  /* ---------------- output ---------------- */
 
-    if (this.buffer === "1") {
-      this.balance -= this.tx.amount;
-      this.stack = ["dial", "main"];
-      this.screen = "done";
-      this.buffer = "";
-    } else if (this.buffer === "2") {
-      this.stack = ["dial", "main"];
-      this.screen = "cancelled";
-      this.buffer = "";
-    } else {
-      this.fail("badChoice");
+  /** Screens from the idle screen to here, found by following each screen's Back route. */
+  private trailIds(): ScreenId[] {
+    const chain: ScreenId[] = [];
+    let cur: ScreenId | null = this.expiredFrom ?? this.screen;
+    for (let guard = 0; cur !== null && guard < 20; guard++) {
+      chain.unshift(cur);
+      cur = this.resolvePrev(cur);
     }
+    if (this.expiredFrom !== null) chain.push(this.screen);
+    return chain;
   }
 
   /** Text for the current screen in the current language. */
   render(): View {
     const s = STR[this.lang];
-    const prompt = `> ${this.buffer}_`;
-    let rows: string[];
-    let foot: string[];
+    const def = SCREENS[this.screen];
 
-    switch (this.screen) {
-      case "dial":
-        rows = [s.dialPrompt, "", this.buffer || "_", ""];
-        foot = s.foot.dial;
-        break;
-      case "main":
-        rows = [s.mainTitle, s.mainOpt1, s.mainOpt2, prompt];
-        foot = s.foot.menu;
-        break;
-      case "balance":
-        rows = [s.balanceTitle, `KES ${fmt(this.balance)}`, "", MY_NUMBER];
-        foot = s.foot.view;
-        break;
-      case "withdraw":
-        rows = [s.withdrawTitle, s.withdrawOpt1, s.withdrawOpt2, prompt];
-        foot = s.foot.menu;
-        break;
-      case "phone":
-        rows = [s.otherNumber, s.enterPhone, "", prompt];
-        foot = s.foot.input;
-        break;
-      case "amount":
-        rows = [
-          this.tx.target === "self" ? s.myNumber : s.otherNumber,
-          this.tx.phone,
-          s.amountLabel,
-          prompt,
-        ];
-        foot = s.foot.input;
-        break;
-      case "confirm":
-        rows = [
-          s.reviewTitle,
-          `KES ${fmt(this.tx.amount)}`,
-          `${s.to} ${this.tx.phone}`,
-          this.buffer ? `${s.confirmChoice} ${this.buffer}` : s.confirmChoice,
-        ];
-        foot = s.foot.menu;
-        break;
-      case "done":
-        rows = [
-          s.doneTitle,
-          s.withdrawn(fmt(this.tx.amount)),
-          `${s.to} ${this.tx.phone}`,
-          s.balanceLine(fmt(this.balance)),
-        ];
-        foot = s.foot.done;
-        break;
-      case "cancelled":
-        rows = [s.cancelledTitle, s.cancelledBody, "", ""];
-        foot = s.foot.done;
-        break;
-      case "expired":
-        rows = [s.expiredTitle, s.expiredBody, "", ""];
-        foot = s.foot.expired;
-        break;
-    }
-
+    let rows = def.rows({ s, ctx: this.ctx, buffer: this.buffer });
     if (this.error) rows = [rows[0], rows[1], rows[2], `! ${s.err[this.error]}`];
 
-    const names: Record<ScreenId, string> = {
-      dial: DIAL_CODE,
-      main: s.mainTitle,
-      balance: s.balanceTitle,
-      withdraw: s.withdrawTitle,
-      phone: s.otherNumber,
-      amount: s.amountLabel,
-      confirm: s.reviewTitle,
-      done: s.doneTitle,
-      cancelled: s.cancelledTitle,
-      expired: s.expiredTitle,
+    return {
+      screen: this.screen,
+      rows,
+      foot: [...s.foot[def.footer]],
+      trail: this.trailIds().map((id) => SCREENS[id].name(s)),
     };
-    const trail = [...this.stack, this.screen].map((id) => names[id]);
-
-    return { screen: this.screen, rows, foot: [...foot], trail };
   }
 }
-
-/** Longest content row and footer line in a view, in characters. */

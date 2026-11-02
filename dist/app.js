@@ -4,8 +4,9 @@ function boot() {
     const stage = document.getElementById("devices");
     const trail = document.getElementById("trail");
     const fit = document.getElementById("fit");
-    if (stage && trail && fit)
-        new App(stage, new Inspector(trail, fit));
+    const session = document.getElementById("session");
+    if (stage && trail && fit && session)
+        new App(stage, new Inspector(trail, fit, session));
 }
 if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", boot);
