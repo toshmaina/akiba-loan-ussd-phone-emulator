@@ -1,6 +1,6 @@
 import type { Lang, KeyName, Press, View } from "../types/index.js";
 import { Emulator } from "../emulator/index.js";
-import { el } from "./dom.js";
+import { createElement } from "./dom.js";
 import { Display } from "./Display.js";
 import { Keypad } from "./Keypad.js";
 import { HardKeys } from "./HardKeys.js";
@@ -22,10 +22,10 @@ export class Handset {
     this.keypad = new Keypad(send);
     this.hardKeys = new HardKeys(send);
 
-    this.root = el("figure", "phone");
-    if (caption) this.root.appendChild(el("figcaption", "phone-caption", caption));
+    this.root = createElement("figure", "phone");
+    if (caption) this.root.appendChild(createElement("figcaption", "phone-caption", caption));
 
-    const box = el("div", "phone-box");
+    const box = createElement("div", "phone-box");
     box.appendChild(this.buildHandset());
     this.root.appendChild(box);
 
@@ -33,19 +33,19 @@ export class Handset {
   }
 
   private buildHandset(): HTMLElement {
-    const handset = el("div", "handset");
-    handset.appendChild(el("div", "shell"));
+    const handset = createElement("div", "handset");
+    handset.appendChild(createElement("div", "shell"));
 
-    const body = el("div", "body");
-    body.appendChild(el("div", "speaker"));
-    body.appendChild(el("div", "brand", "AKIBA SACCO"));
+    const body = createElement("div", "body");
+    body.appendChild(createElement("div", "speaker"));
+    body.appendChild(createElement("div", "brand", "AKIBA SACCO"));
     handset.appendChild(body);
 
     handset.appendChild(this.display.root);
 
     // Decorative navigation ring and soft-key dashes. Not interactive.
     for (const cls of ["nav-ring", "soft soft-l", "soft soft-r"]) {
-      const part = el("div", cls);
+      const part = createElement("div", cls);
       part.setAttribute("aria-hidden", "true");
       handset.appendChild(part);
     }

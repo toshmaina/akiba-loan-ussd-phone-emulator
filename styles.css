@@ -176,7 +176,7 @@ kbd {
 
 .speaker {
   position: absolute;
-  left: 61px; top: 12px;   /* body-relative: abs 86 / 25 */
+  left: 71px; top: 12px;   /* body-relative: abs 86 / 25 */
   width: 28px; height: 6px;
   border-radius: 3px;
   background: #000;

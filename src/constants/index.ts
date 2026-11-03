@@ -1,22 +1,22 @@
-import {Lang,Strings,KeyDef} from "../types/index"
+import type { Lang, Strings, KeyDef } from "../types/index.js";
 
+export const DIAL_CODE = "*144#";
+export const MY_NUMBER = "0712345678";
+export const START_BALANCE = 12500;
+export const MIN_AMOUNT = 10;
 
-/* ------------------------------------------------------------------ */
-/* 1. Constants and copy                                               */
-/* ------------------------------------------------------------------ */
+/** Monospace columns that fit the 148px text area (10px body, 9px footer, ~0.6em per glyph). */
+export const MAX_ROW_CHARS = 24;
+export const MAX_FOOT_CHARS = 27;
 
-const DIAL_CODE = "*144#";
-const MY_NUMBER = "0712345678";
-const START_BALANCE = 12500;
-const MIN_AMOUNT = 10;
+/** Idle time before the network ends a USSD session. 0 disables the timeout. */
+export const SESSION_TIMEOUT_OPTIONS_S = [0, 15, 30, 60];
+export const DEFAULT_SESSION_TIMEOUT_S = 30;
 
-const MAX_ROW_CHARS = 22;
-const MAX_FOOT_CHARS = 24;
+export const MAX_PHONE_DIGITS = 10;
+export const MAX_AMOUNT_DIGITS = 6;
 
-const MAX_PHONE_DIGITS = 10;
-const MAX_AMOUNT_DIGITS = 6;
-
-const STR: Record<Lang, Strings> = {
+export const STR: Record<Lang, Strings> = {
   en: {
     appName: "Akiba SACCO",
     dialPrompt: "Dial service code",
@@ -39,6 +39,8 @@ const STR: Record<Lang, Strings> = {
     balanceLine: (a) => `Balance KES ${a}`,
     cancelledTitle: "Cancelled",
     cancelledBody: "Withdrawal not made",
+    expiredTitle: "Session expired",
+    expiredBody: "Please dial *144# again",
     err: {
       unknownCode: "Unknown code",
       badChoice: "Invalid choice",
@@ -52,6 +54,7 @@ const STR: Record<Lang, Strings> = {
       view: ["0: Back", "End: Quit"],
       input: ["#: Submit  *: Clear", "Hold 0: Back  End: Quit"],
       done: ["0: Main Menu", "End: Quit"],
+      expired: ["Press any key", ""],
     },
   },
   sw: {
@@ -76,6 +79,8 @@ const STR: Record<Lang, Strings> = {
     balanceLine: (a) => `Salio KES ${a}`,
     cancelledTitle: "Imeghairiwa",
     cancelledBody: "Utoaji haujafanyika",
+    expiredTitle: "Kipindi kimeisha",
+    expiredBody: "Piga *144# tena",
     err: {
       unknownCode: "Msimbo haujulikani",
       badChoice: "Chaguo si sahihi",
@@ -89,13 +94,14 @@ const STR: Record<Lang, Strings> = {
       view: ["0: Rudi", "End: Toka"],
       input: ["#: Tuma  *: Futa", "Shika 0: Rudi End: Toka"],
       done: ["0: Menyu Kuu", "End: Toka"],
+      expired: ["Bonyeza kitufe chochote", ""],
     },
   },
 };
 
-const fmt = (n: number): string => n.toLocaleString("en-US");
+export const fmt = (n: number): string => n.toLocaleString("en-US");
 
-const KEYPAD: KeyDef[] = [
+export const KEYPAD: KeyDef[] = [
   { key: "1", main: "1", sub: "∞", label: "1" },
   { key: "2", main: "2", sub: "abc", label: "2" },
   { key: "3", main: "3", sub: "def", label: "3" },
@@ -110,20 +116,4 @@ const KEYPAD: KeyDef[] = [
   { key: "#", main: "#", sub: "↑↵", label: "Hash" },
 ];
 
-const HOLD_MS = 600;
-
-export {
-  DIAL_CODE,
-  Lang,
-  MAX_AMOUNT_DIGITS,
-  MAX_FOOT_CHARS,
-  MAX_PHONE_DIGITS,
-  MAX_ROW_CHARS,
-  MIN_AMOUNT,
-  MY_NUMBER,
-  START_BALANCE,
-  STR,
-  fmt,
-  HOLD_MS,
-  KEYPAD
-}
+export const HOLD_MS = 600;

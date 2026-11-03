@@ -1,6 +1,6 @@
 import type { KeyName, Press } from "../types/index.js";
 import { KEYPAD } from "../constants/index.js";
-import { el } from "./dom.js";
+import { createElement } from "./dom.js";
 import { bindHoldKey } from "./holdKey.js";
 
 const FLASH_MS = 110;
@@ -17,15 +17,15 @@ export class Keypad {
   private buttons = new Map<KeyName, HTMLButtonElement>();
 
   constructor(send: (p: Press) => void) {
-    this.root = el("div", "keypad");
+    this.root = createElement("div", "keypad");
 
     for (const def of KEYPAD) {
       const suffix = def.key === "*" ? "star" : def.key === "#" ? "hash" : def.key;
-      const button = el("button", `key key-${suffix}`);
+      const button = createElement("button", `key key-${suffix}`);
       button.type = "button";
       button.setAttribute("aria-label", def.label);
-      button.appendChild(el("span", "key-main", def.main));
-      button.appendChild(el("span", "key-sub", def.sub));
+      button.appendChild(createElement("span", "key-main", def.main));
+      button.appendChild(createElement("span", "key-sub", def.sub));
 
       if (def.key === "0") bindHoldKey(button, send);
       else button.addEventListener("click", () => send({ key: def.key }));

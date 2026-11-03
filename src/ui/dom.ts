@@ -1,5 +1,5 @@
 /** Create an element with an optional class name and text. */
-export function el<K extends keyof HTMLElementTagNameMap>(
+export function createElement<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
   text?: string
