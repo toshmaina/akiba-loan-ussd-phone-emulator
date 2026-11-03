@@ -6,6 +6,7 @@ import { bindKeyboard } from "./keyboard.js";
 import { defaultScale, effectiveScale } from "./scale.js";
 import { SessionTimer } from "./SessionTimer.js";
 import { DEFAULT_SESSION_TIMEOUT_S } from "../constants/index.js";
+import type { SessionLogger } from "../session/sessionLogger.js";
 
 /** Owns the handsets and routes every key press to all of them. */
 export class App {
@@ -20,7 +21,11 @@ export class App {
     () => this.expireSession()
   );
 
-  constructor(private stage: HTMLElement, private inspector: Inspector) {
+  constructor(
+    private stage: HTMLElement,
+    private inspector: Inspector,
+    private logger: SessionLogger
+  ) {
     this.controls = new Controls({
       onMode: (mode) => this.setMode(mode),
       onScale: (scale) => {
@@ -55,6 +60,7 @@ export class App {
   }
 
   private rebuild(): void {
+    this.logger.closeActive("abandoned"); // Mark any open session as abandoned
     const send = (p: Press): void => this.dispatch(p);
     this.handsets =
       this.mode === "both"
@@ -70,10 +76,13 @@ export class App {
 
   /** Every handset on screen receives every key, so EN and SW stay in step. */
   private dispatch(press: Press): void {
-    for (const h of this.handsets) {
-      h.emu.press(press);
+    this.handsets.forEach((h, i) => {
+      const event = h.emu.press(press);
+      // Both handsets live the same journey; log it once, from the first.
+      // h.emu.lang captures the language at the exact moment of the action.
+      if (i === 0 && event) this.logger.record(event, h.emu.lang);
       h.update();
-    }
+    });
     this.inspector.update(this.handsets);
     this.syncSession();
   }
@@ -92,10 +101,11 @@ export class App {
 
   /** The network closes the session; the handsets show "Session expired". */
   private expireSession(): void {
-    for (const h of this.handsets) {
-      h.emu.expire();
+    this.handsets.forEach((h, i) => {
+      const event = h.emu.expire();
+      if (i === 0 && event) this.logger.record(event, h.emu.lang);
       h.update();
-    }
+    });
     this.inspector.update(this.handsets);
     this.showSession(null);
   }

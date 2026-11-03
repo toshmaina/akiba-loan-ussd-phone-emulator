@@ -4,6 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Akiba SACCO · USSD feature phone emulator</title>
+
+  <!-- jQuery (Required for DataTables) -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+  <!-- DataTables CSS & JS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/v/dt/dt-3.1.5/datatables.min.css">
+  <script src="https://cdn.datatables.net/v/dt/dt-3.1.5/datatables.min.js"></script>
+
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="dist/app.js"></script>
 </head>
@@ -62,8 +70,56 @@
         <p>On amount and phone screens, 0 is a digit; hold the 0 key to go Back.</p>
       </section>
 
-      <button type="button" id="reset" class="reset">Reset demo</button>
+      <div class="actions">
+        <button type="button" id="log-toggle" class="reset" aria-controls="log-drawer" aria-expanded="false">
+          Session log <span id="log-count"></span>
+        </button>
+        <button type="button" id="data-table-toggle" class="reset">Data Table</button>
+        <button type="button" id="reset" class="reset">Reset demo</button>
+      </div>
     </aside>
   </main>
+
+  <!-- Session Log Drawer -->
+  <aside id="log-drawer" class="drawer" aria-label="USSD session log" hidden></aside>
+
+  <!-- Data Table Container -->
+  <section id="data-table-view" class="data-table-view" hidden>
+    <div class="table-header">
+      <h2>USSD Session History</h2>
+
+      <!-- NEW: Dynamic Filter Controls -->
+      <div class="table-filters">
+        <label>
+          Status:
+          <select id="filter-status">
+            <option value="">All</option>
+          </select>
+        </label>
+        <label>
+          Language:
+          <select id="filter-lang">
+            <option value="">All</option>
+          </select>
+        </label>
+      </div>
+
+      <button type="button" id="close-table" class="log-btn">Close</button>
+    </div>
+    <table id="sessions-table" class="display" style="width:100%">
+      <thead>
+        <tr>
+          <th>Session ID</th>
+          <th>Phone</th>
+          <th>Language</th>
+          <th>Dial Code</th>
+          <th>Started At</th>
+          <th>Status</th>
+          <th>Events</th>
+          <th>Last Screen</th>
+        </tr>
+      </thead>
+    </table>
+  </section>
 </body>
 </html>

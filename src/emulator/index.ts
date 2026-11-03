@@ -9,12 +9,25 @@ import type {
   ScreenId,
   View,
 } from "../types/index.js";
+import type { EventKind, JourneyEvent } from "../types/session.js";
 import { MY_NUMBER, START_BALANCE, STR } from "../constants/index.js";
 import { EXPIRED_SCREEN, SCREENS, START_SCREEN } from "../constants/screens.js";
+
+/** What a key press did, before the engine adds where it happened. */
+interface Outcome {
+  kind: EventKind;
+  value: string;
+  error?: ErrKey;
+}
+
+const BACK: Outcome = { kind: "back", value: "0" };
 
 /**
  * Generic USSD engine. It knows nothing about individual screens: what each
  * screen shows, where it leads and how it validates input all come from SCREENS.
+ *
+ * press() and expire() return a JourneyEvent describing what happened, so a
+ * logger can record the journey. The engine itself stores and times nothing.
  */
 export class Emulator {
   lang: Lang;
@@ -45,12 +58,21 @@ export class Emulator {
    * The network ends the session after inactivity. The screen the user was on
    * stays in the trail; the next key press dismisses the notice.
    */
-  expire(): void {
-    if (!this.sessionActive) return;
-    this.expiredFrom = this.screen;
+  expire(): JourneyEvent | null {
+    if (!this.sessionActive) return null;
+    const from = this.screen;
+    this.expiredFrom = from;
     this.screen = EXPIRED_SCREEN;
     this.buffer = SCREENS[EXPIRED_SCREEN].initialBuffer ?? "";
     this.error = null;
+    return {
+      kind: "expire",
+      screenId: from,
+      toScreenId: EXPIRED_SCREEN,
+      value: "",
+      error: null,
+      endsSession: true,
+    };
   }
 
   /* ---------------- navigation ---------------- */
@@ -66,10 +88,11 @@ export class Emulator {
     return typeof prev === "function" ? prev(this.ctx) : prev;
   }
 
-  private back(): void {
+  private back(): Outcome {
     const target = this.resolvePrev(this.screen);
     if (target === null) this.quit();
     else this.goTo(target);
+    return BACK;
   }
 
   /** Back to an idle handset. Balance is kept; use a new Emulator to reset it. */
@@ -78,16 +101,38 @@ export class Emulator {
     this.error = null;
   }
 
-  private fail(e: ErrKey): void {
-    this.error = e;
+  private fail(error: ErrKey, value: string): Outcome {
+    this.error = error;
     this.buffer = "";
+    return { kind: "error", value, error };
   }
 
   /* ---------------- input ---------------- */
 
-  press(p: Press): void {
+  /** Handle a key press. Returns what happened, or null if nothing loggable did. */
+  press(p: Press): JourneyEvent | null {
     this.error = null;
-    if (p.key === "end") return this.quit();
+    const from = this.screen;
+    const wasActive = this.sessionActive;
+
+    const outcome = this.handle(p, wasActive);
+    if (!outcome) return null;
+
+    return {
+      kind: outcome.kind,
+      screenId: from,
+      toScreenId: outcome.kind === "error" ? null : this.screen,
+      value: outcome.value,
+      error: outcome.error ?? null,
+      endsSession: wasActive && !this.sessionActive && outcome.kind !== "error",
+    };
+  }
+
+  private handle(p: Press, wasActive: boolean): Outcome | null {
+    if (p.key === "end") {
+      this.quit();
+      return wasActive ? { kind: "end", value: "" } : null;
+    }
 
     const input = SCREENS[this.screen].input;
     switch (input.kind) {
@@ -98,65 +143,72 @@ export class Emulator {
       case "field":
         return this.pressField(p, input);
       case "view":
-        if (p.key === "0") this.back();
-        return;
+        return p.key === "0" ? this.back() : null;
       case "any":
-        this.back();
-        return;
+        return this.back();
     }
   }
 
-  private pressDial(p: Press, input: DialInput<ScreenId>): void {
+  private pressDial(p: Press, input: DialInput<ScreenId>): Outcome | null {
     if (p.key === "call") {
-      if (this.buffer === input.code) this.goTo(input.next);
-      else this.fail("unknownCode");
-      return;
+      const dialled = this.buffer;
+      if (dialled !== input.code) return this.fail("unknownCode", dialled);
+      this.goTo(input.next);
+      return { kind: "dial", value: dialled };
     }
     if (p.key === "*" && this.buffer === input.code) {
       // First "*" on the pre-filled code clears it and starts a new entry.
       this.buffer = "*";
-      return;
+      return null;
     }
     if (p.key === "*" || p.key === "#" || /^[0-9]$/.test(p.key)) {
       if (this.buffer.length < input.maxLength) this.buffer += p.key;
     }
+    return null;
   }
 
-  private pressMenu(p: Press, input: MenuInput<ScreenId>): void {
+  private pressMenu(p: Press, input: MenuInput<ScreenId>): Outcome | null {
     if (p.key === "0") return this.back();
     if (p.key === "*") {
       this.buffer = "";
-      return;
+      return null;
     }
     if (/^[1-9]$/.test(p.key)) {
       this.buffer = p.key; // menus take a single digit
-      return;
+      return null;
     }
-    if (p.key !== "#") return;
+    if (p.key !== "#") return null;
 
-    const option = input.options[this.buffer];
-    if (option === undefined) return this.fail("badChoice");
-    if (typeof option === "string") return this.goTo(option);
-    option.effect?.(this.ctx);
-    this.goTo(option.to);
+    const choice = this.buffer;
+    const option = input.options[choice];
+    if (option === undefined) return this.fail("badChoice", choice);
+    if (typeof option === "string") {
+      this.goTo(option);
+    } else {
+      option.effect?.(this.ctx);
+      this.goTo(option.to);
+    }
+    return { kind: "select", value: choice };
   }
 
-  private pressField(p: Press, input: FieldInput<ScreenId>): void {
+  private pressField(p: Press, input: FieldInput<ScreenId>): Outcome | null {
     if (p.key === "0" && p.hold) return this.back();
     if (p.key === "*") {
       this.buffer = "";
-      return;
+      return null;
     }
     if (/^[0-9]$/.test(p.key)) {
       if (this.buffer.length < input.maxLength) this.buffer += p.key;
-      return;
+      return null;
     }
-    if (p.key !== "#") return;
+    if (p.key !== "#") return null;
 
-    const error = input.validate(this.buffer, this.ctx);
-    if (error) return this.fail(error);
-    input.commit(this.buffer, this.ctx);
+    const value = this.buffer;
+    const error = input.validate(value, this.ctx);
+    if (error) return this.fail(error, value);
+    input.commit(value, this.ctx);
     this.goTo(input.next);
+    return { kind: "input", value };
   }
 
   /* ---------------- output ---------------- */
