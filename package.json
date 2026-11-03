@@ -2,10 +2,12 @@
   "name": "akiba-sacco-ussd-emulator",
   "version": "1.0.0",
   "private": true,
-  "description": "Feature phone USSD emulator for Akiba SACCO. Zero runtime dependencies; TypeScript is only needed to rebuild dist/app.js.",
+  "description": "Feature phone USSD emulator for Akiba SACCO. Zero runtime dependencies; TypeScript is only needed to rebuild dist/.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "watch": "tsc -p tsconfig.json --watch"
+    "watch": "tsc -p tsconfig.json --watch",
+    "serve": "python3 -m http.server 8000",
+    "build:vercel": "npm run build && rm -rf public && mkdir public && cp -r index.html styles.css dist public/"
   },
   "devDependencies": {
     "typescript": "^5.4.0"
