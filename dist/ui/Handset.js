@@ -1,0 +1,60 @@
+import { Emulator } from "../emulator/index.js";
+import { createElement } from "./dom.js";
+import { Display } from "./Display.js";
+import { Keypad } from "./Keypad.js";
+import { HardKeys } from "./HardKeys.js";
+/**
+ * One complete phone: casing, display, keys, and its own Emulator.
+ * It wires the pieces together; the pieces know nothing about each other.
+ */
+export class Handset {
+    constructor(lang, caption, send) {
+        this.display = new Display();
+        this.emu = new Emulator(lang);
+        this.keypad = new Keypad(send);
+        this.hardKeys = new HardKeys(send);
+        this.root = createElement("figure", "phone");
+        if (caption)
+            this.root.appendChild(createElement("figcaption", "phone-caption", caption));
+        const box = createElement("div", "phone-box");
+        box.appendChild(this.buildHandset());
+        this.root.appendChild(box);
+        this.update();
+    }
+    buildHandset() {
+        const handset = createElement("div", "handset");
+        handset.appendChild(createElement("div", "shell"));
+        const body = createElement("div", "body");
+        body.appendChild(createElement("div", "speaker"));
+        body.appendChild(createElement("div", "brand", "AKIBA SACCO"));
+        handset.appendChild(body);
+        handset.appendChild(this.display.root);
+        // Decorative navigation ring and soft-key dashes. Not interactive.
+        for (const cls of ["nav-ring", "soft soft-l", "soft soft-r"]) {
+            const part = createElement("div", cls);
+            part.setAttribute("aria-hidden", "true");
+            handset.appendChild(part);
+        }
+        handset.appendChild(this.hardKeys.call);
+        handset.appendChild(this.hardKeys.end);
+        handset.appendChild(this.keypad.root);
+        return handset;
+    }
+    /** Re-render the display from the emulator's current state. */
+    update() {
+        this.lastView = this.emu.render();
+        this.display.render(this.lastView);
+        this.root.dataset.screen = this.lastView.screen;
+    }
+    /** Flash the matching on-screen key. */
+    flash(key) {
+        this.keypad.flash(key);
+        this.hardKeys.flash(key);
+    }
+    get view() {
+        return this.lastView;
+    }
+    fitsDisplay() {
+        return this.display.fits();
+    }
+}
