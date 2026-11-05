@@ -1,6 +1,7 @@
 import type {
   Context,
   DialInput,
+  PagerInput,
   ErrKey,
   FieldInput,
   Lang,
@@ -12,7 +13,7 @@ import type {
 import type { EventKind, JourneyEvent } from "../types/session.js";
 import { MY_NUMBER, START_BALANCE, STR } from "../constants/index.js";
 import { EXPIRED_SCREEN, SCREENS, START_SCREEN } from "../constants/screens.js";
-
+import { seedTransactions } from "../constants/transactions.js";
 /** What a key press did, before the engine adds where it happened. */
 interface Outcome {
   kind: EventKind;
@@ -34,11 +35,13 @@ export class Emulator {
   private screen: ScreenId = START_SCREEN;
   private buffer = SCREENS[START_SCREEN].initialBuffer ?? "";
   private error: ErrKey | null = null;
+  private page = 0;
   /** Set while the session-expired notice is showing: where the user was. */
   private expiredFrom: ScreenId | null = null;
   private ctx: Context = {
     balance: START_BALANCE,
     tx: { target: "self", phone: MY_NUMBER, amount: 0 },
+    transactions: seedTransactions(),
   };
 
   constructor(lang: Lang) {
@@ -80,6 +83,7 @@ export class Emulator {
   private goTo(id: ScreenId): void {
     this.screen = id;
     this.buffer = SCREENS[id].initialBuffer ?? "";
+    this.page = 0;
     this.expiredFrom = null;
   }
 
@@ -146,9 +150,23 @@ export class Emulator {
         return p.key === "0" ? this.back() : null;
       case "any":
         return this.back();
+      case "pager":
+        return this.pressPager(p, input);
     }
   }
-
+  private pressPager(p: Press, input: PagerInput): Outcome | null {
+    if (p.key === "0") return this.back();
+    const pages = input.pages(this.ctx);
+    if (p.key === "#" && this.page < pages - 1) {
+      this.page++;
+      return { kind: "page", value: "next" };
+    }
+    if (p.key === "*" && this.page > 0) {
+      this.page--;
+      return { kind: "page", value: "prev" };
+    }
+    return null;
+  }
   private pressDial(p: Press, input: DialInput<ScreenId>): Outcome | null {
     if (p.key === "call") {
       const dialled = this.buffer;
@@ -230,9 +248,11 @@ export class Emulator {
     const s = STR[this.lang];
     const def = SCREENS[this.screen];
 
-    let rows = def.rows({ s, ctx: this.ctx, buffer: this.buffer });
-    if (this.error) rows = [rows[0], rows[1], rows[2], `! ${s.err[this.error]}`];
-
+    let rows = def.rows({ s, ctx: this.ctx, buffer: this.buffer, page: this.page });
+    if (this.error) {
+      rows = [...rows];
+      rows[def.errorRow ?? 3] = `! ${s.err[this.error]}`;
+    }
     return {
       screen: this.screen,
       rows,

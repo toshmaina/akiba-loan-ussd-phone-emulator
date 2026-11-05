@@ -1,5 +1,6 @@
 import { MY_NUMBER, START_BALANCE, STR } from "../constants/index.js";
 import { EXPIRED_SCREEN, SCREENS, START_SCREEN } from "../constants/screens.js";
+import { seedTransactions } from "../constants/transactions.js";
 const BACK = { kind: "back", value: "0" };
 /**
  * Generic USSD engine. It knows nothing about individual screens: what each
@@ -14,11 +15,13 @@ export class Emulator {
         this.screen = START_SCREEN;
         this.buffer = (_a = SCREENS[START_SCREEN].initialBuffer) !== null && _a !== void 0 ? _a : "";
         this.error = null;
+        this.page = 0;
         /** Set while the session-expired notice is showing: where the user was. */
         this.expiredFrom = null;
         this.ctx = {
             balance: START_BALANCE,
             tx: { target: "self", phone: MY_NUMBER, amount: 0 },
+            transactions: seedTransactions(),
         };
         this.lang = lang;
     }
@@ -56,6 +59,7 @@ export class Emulator {
         var _a;
         this.screen = id;
         this.buffer = (_a = SCREENS[id].initialBuffer) !== null && _a !== void 0 ? _a : "";
+        this.page = 0;
         this.expiredFrom = null;
     }
     resolvePrev(id) {
@@ -116,7 +120,23 @@ export class Emulator {
                 return p.key === "0" ? this.back() : null;
             case "any":
                 return this.back();
+            case "pager":
+                return this.pressPager(p, input);
         }
+    }
+    pressPager(p, input) {
+        if (p.key === "0")
+            return this.back();
+        const pages = input.pages(this.ctx);
+        if (p.key === "#" && this.page < pages - 1) {
+            this.page++;
+            return { kind: "page", value: "next" };
+        }
+        if (p.key === "*" && this.page > 0) {
+            this.page--;
+            return { kind: "page", value: "prev" };
+        }
+        return null;
     }
     pressDial(p, input) {
         if (p.key === "call") {
@@ -202,11 +222,14 @@ export class Emulator {
     }
     /** Text for the current screen in the current language. */
     render() {
+        var _a;
         const s = STR[this.lang];
         const def = SCREENS[this.screen];
-        let rows = def.rows({ s, ctx: this.ctx, buffer: this.buffer });
-        if (this.error)
-            rows = [rows[0], rows[1], rows[2], `! ${s.err[this.error]}`];
+        let rows = def.rows({ s, ctx: this.ctx, buffer: this.buffer, page: this.page });
+        if (this.error) {
+            rows = [...rows];
+            rows[(_a = def.errorRow) !== null && _a !== void 0 ? _a : 3] = `! ${s.err[this.error]}`;
+        }
         return {
             screen: this.screen,
             rows,

@@ -23,6 +23,8 @@ export function describeEvent(e: SessionEvent): string {
       return `Entered ${value} on ${from} → ${to}`;
     case "error":
       return `Rejected ${value} on ${from}: ${e.error ? STR.en.err[e.error] : "invalid"}`;
+    case "page":
+      return `Turned to the ${e.value === "prev" ? "previous" : "next"} page of ${from}`;
     case "back":
       return `Went back from ${from} to ${to}`;
     case "end":

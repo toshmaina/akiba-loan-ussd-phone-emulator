@@ -1,4 +1,5 @@
-import { DIAL_CODE, MY_NUMBER, MIN_AMOUNT, MAX_PHONE_DIGITS, MAX_AMOUNT_DIGITS, fmt, } from "./index.js";
+import { pageCount, statementRows } from "./transactions.js";
+import { DIAL_CODE, MY_NUMBER, MIN_AMOUNT, MAX_PHONE_DIGITS, MAX_AMOUNT_DIGITS, MAX_ROW_CHARS, fmt, } from "./index.js";
 /**
  * Infers the screen ids from the keys of the object and checks that every
  * `next` / `prev` route names one of them.
@@ -7,6 +8,11 @@ function defineScreens(screens) {
     return screens;
 }
 const prompt = (buffer) => `> ${buffer}_`;
+/** A title with the input prompt right-aligned on the same line, to free a row for content. */
+const titleWithPrompt = (title, buffer) => {
+    const p = prompt(buffer);
+    return title.padEnd(MAX_ROW_CHARS - p.length) + p;
+};
 const startWithdrawal = (target) => (ctx) => {
     ctx.tx = { target, phone: target === "self" ? MY_NUMBER : "", amount: 0 };
 };
@@ -23,10 +29,19 @@ const DEFINITIONS = defineScreens({
     main: {
         name: (s) => s.mainTitle,
         session: true,
-        rows: ({ s, buffer }) => [s.mainTitle, s.mainOpt1, s.mainOpt2, prompt(buffer)],
+        rows: ({ s, buffer }) => [titleWithPrompt(s.mainTitle, buffer), s.mainOpt1, s.mainOpt2, s.mainOpt3],
         footer: "menu",
+        errorRow: 0, // the last row now holds an option, so errors show on the title line
         prev: "dial",
-        input: { kind: "menu", options: { "1": "balance", "2": "withdraw" } },
+        input: { kind: "menu", options: { "1": "balance", "2": "withdraw", "3": "statement" } },
+    },
+    statement: {
+        name: (s) => s.statementName,
+        session: true,
+        rows: ({ s, ctx, page }) => statementRows(s, ctx.transactions, page),
+        footer: "pager",
+        prev: "main",
+        input: { kind: "pager", pages: (ctx) => pageCount(ctx.transactions.length) },
     },
     balance: {
         name: (s) => s.balanceTitle,
@@ -111,6 +126,7 @@ const DEFINITIONS = defineScreens({
                     to: "done",
                     effect: (ctx) => {
                         ctx.balance -= ctx.tx.amount;
+                        ctx.transactions.unshift({ at: Date.now(), kind: "withdrawal", amount: ctx.tx.amount });
                     },
                 },
                 "2": "cancelled",

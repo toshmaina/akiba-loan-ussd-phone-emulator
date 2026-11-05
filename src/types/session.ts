@@ -6,6 +6,7 @@ export type EventKind =
   | "select"  // chose a menu option
   | "input"   // submitted a value (phone number, amount)
   | "error"   // submitted something that was rejected
+  | "page"
   | "back"    // went back a screen
   | "end"     // pressed End
   | "expire"; // the network timed the session out

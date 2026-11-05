@@ -30,6 +30,12 @@ export interface Strings {
   mainTitle: string;
   mainOpt1: string;
   mainOpt2: string;
+  mainOpt3: string;
+  statementName: string;
+  statementTitle: (page: number, pages: number) => string;
+  txDeposit: string;
+  txWithdraw: string;
+  noTransactions: string;
   balanceTitle: string;
   withdrawTitle: string;
   withdrawOpt1: string;
@@ -56,24 +62,37 @@ export interface Strings {
     input: [string, string];
     done: [string, string];
     expired: [string, string];
+    pager: [string, string];
   };
 }
-
 
 export interface Withdrawal {
   target: "self" | "other";
   phone: string;
   amount: number;
 }
-
+/** A multi-page read-only list: # next page, * previous page, 0 is Back. */
+export interface PagerInput {
+  kind: "pager";
+  /** How many pages the current data fills. */
+  pages: (ctx: Context) => number;
+}
 
 /** Which footer pair (soft-key hints) a screen shows. */
 export type FooterKey = keyof Strings["foot"];
 
+export interface Transaction {
+  /** Epoch ms. */
+  at: number;
+  kind: "deposit" | "withdrawal";
+  /** Always positive; kind says which way the money moved. */
+  amount: number;
+}
 /** Session data that screens read, and that effects and commits write. */
 export interface Context {
   balance: number;
   tx: Withdrawal;
+  transactions: Transaction[];
 }
 
 /** Everything a screen needs to produce its four content lines. */
@@ -81,6 +100,7 @@ export interface RenderArgs {
   s: Strings;
   ctx: Context;
   buffer: string;
+  page: number;
 }
 
 /** A forward route: just a screen, or a screen plus a side effect on the way. */
@@ -127,7 +147,8 @@ export type ScreenInput<Id extends string> =
   | MenuInput<Id>
   | FieldInput<Id>
   | ViewInput
-  | AnyKeyInput;
+  | AnyKeyInput
+  | PagerInput;
 
 /** Everything the emulator needs to know about one screen. */
 export interface ScreenDef<Id extends string = string> {
@@ -141,6 +162,8 @@ export interface ScreenDef<Id extends string = string> {
   rows: (a: RenderArgs) => string[];
   footer: FooterKey;
   /** Where Back goes. null leaves the session. */
+  errorRow?: number;
+
   prev: Id | ((ctx: Context) => Id) | null;
   /** How the screen takes input and where it leads next. */
   input: ScreenInput<Id>;
